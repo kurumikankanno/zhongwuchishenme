@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="中午吃什么？用午餐转盘快速决定今天吃什么。">
+  <title>中午吃什么</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">zhongwuchishenme.xyz</p>
+        <h1>中午吃什么</h1>
+        <p class="intro">把纠结交给转盘。添加想吃的，排除不想吃的，最近抽中过的会自动降低一点概率。</p>
+      </div>
+      <div class="summary" aria-label="当前统计">
+        <div>
+          <strong data-count>0</strong>
+          <span>可选</span>
+        </div>
+        <div>
+          <strong data-custom-count>0</strong>
+          <span>自定义</span>
+        </div>
+        <div>
+          <strong data-disliked-count>0</strong>
+          <span>已排除</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="workspace">
+      <section class="wheel-panel" aria-label="午餐转盘">
+        <div class="wheel-wrap">
+          <div class="pointer" aria-hidden="true"></div>
+          <canvas class="wheel" data-wheel width="640" height="640" aria-label="午餐随机转盘"></canvas>
+          <button class="spin-button" type="button" data-spin>开始</button>
+        </div>
+        <div class="result-strip" aria-live="polite">
+          <span>今天可以吃</span>
+          <strong data-result>等转盘决定</strong>
+        </div>
+      </section>
+
+      <aside class="control-panel" aria-label="转盘设置">
+        <section class="control-section">
+          <h2>加入想吃的</h2>
+          <form class="inline-form" data-add-form>
+            <input data-item-input type="text" maxlength="24" autocomplete="off" placeholder="例如：番茄鸡蛋盖饭">
+            <button type="submit">添加</button>
+          </form>
+          <p class="status" data-status>你的设置会保存在当前浏览器。</p>
+        </section>
+
+        <section class="control-section">
+          <h2>排除不想吃的</h2>
+          <form class="inline-form danger-form" data-dislike-form>
+            <input data-dislike-input type="text" maxlength="24" autocomplete="off" placeholder="例如：麻辣烫">
+            <button type="submit">排除</button>
+          </form>
+          <div class="chips" data-disliked-list aria-label="已排除内容"></div>
+        </section>
+
+        <section class="control-section">
+          <h2>当前选项</h2>
+          <div class="chips option-list" data-option-list aria-label="当前午餐选项"></div>
+          <p class="empty" data-empty hidden>当前没有可抽选项，请移除部分排除内容或恢复默认。</p>
+        </section>
+
+        <section class="control-section actions">
+          <button class="secondary" type="button" data-clear-custom>清空自定义</button>
+          <button class="secondary" type="button" data-clear-disliked>清空排除</button>
+          <button class="secondary" type="button" data-reset>恢复默认</button>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
