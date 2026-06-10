@@ -4,7 +4,10 @@
   const STORAGE = {
     custom: "zwcs-custom-items-v1",
     disliked: "zwcs-disliked-items-v1",
-    penalty: "zwcs-penalty-v1"
+    penalty: "zwcs-penalty-v1",
+    ownerToken: "zwcs-owner-token-v1",
+    ownedPosts: "zwcs-owned-posts-v1",
+    editCooldowns: "zwcs-edit-cooldowns-v1"
   };
 
   const PENALTY_ROUNDS = 8;
@@ -79,6 +82,10 @@
     discussionPosts: [],
     discussionFilter: "all",
     discussionSubmitting: false,
+    ownerToken: getOwnerToken(),
+    ownedPostIds: loadArray(STORAGE.ownedPosts),
+    editingPostId: "",
+    editCooldowns: loadObject(STORAGE.editCooldowns),
     items: []
   };
 
@@ -170,6 +177,45 @@
     localStorage.setItem(STORAGE.penalty, JSON.stringify(state.penalty));
   }
 
+  function randomToken() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID();
+    }
+
+    return `owner-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  }
+
+  function getOwnerToken() {
+    const existing = localStorage.getItem(STORAGE.ownerToken);
+    if (existing) {
+      return existing;
+    }
+
+    const token = randomToken();
+    localStorage.setItem(STORAGE.ownerToken, token);
+    return token;
+  }
+
+  function saveOwnedPosts() {
+    localStorage.setItem(STORAGE.ownedPosts, JSON.stringify(state.ownedPostIds));
+  }
+
+  function saveEditCooldowns() {
+    localStorage.setItem(STORAGE.editCooldowns, JSON.stringify(state.editCooldowns));
+  }
+
+  function rememberOwnedPost(id) {
+    if (id && !hasItem(state.ownedPostIds, id)) {
+      state.ownedPostIds.push(id);
+      saveOwnedPosts();
+    }
+  }
+
+  function forgetOwnedPost(id) {
+    state.ownedPostIds = state.ownedPostIds.filter((entry) => entry !== id);
+    saveOwnedPosts();
+  }
+
   function discussionEndpoint(query) {
     return `${DISCUSSION_CONFIG.url}/rest/v1/${DISCUSSION_CONFIG.table}${query || ""}`;
   }
@@ -178,6 +224,7 @@
     return Object.assign({
       apikey: DISCUSSION_CONFIG.key,
       Authorization: `Bearer ${DISCUSSION_CONFIG.key}`,
+      "x-owner-token": state.ownerToken,
       "Content-Type": "application/json"
     }, extra || {});
   }
@@ -317,6 +364,15 @@
     elements.discussionStatus.dataset.tone = tone || "";
   }
 
+  function isOwnPost(post) {
+    return post && hasItem(state.ownedPostIds, post.id);
+  }
+
+  function canEditPost(post) {
+    const until = Number(state.editCooldowns[post.id] || 0);
+    return Date.now() >= until;
+  }
+
   function hideResultQuestion() {
     elements.resultQuestion.hidden = true;
   }
@@ -406,13 +462,14 @@
       const title = document.createElement("strong");
       const meta = document.createElement("span");
       const reason = document.createElement("p");
+      const actions = document.createElement("div");
 
       card.className = `discussion-card ${post.post_type === "avoid" ? "is-avoid" : "is-recommend"}`;
       head.className = "discussion-card-head";
       type.className = "discussion-type";
       type.textContent = post.post_type === "avoid" ? "避雷" : "推荐";
       title.textContent = post.shop_name || "未命名店家";
-      meta.textContent = `${post.school_name || "未知学校"} · 匿名 · ${formatTime(post.created_at)}`;
+      meta.textContent = `${post.school_name || "未知学校"} · 匿名 · ${formatTime(post.updated_at || post.created_at)}${post.updated_at ? " · 已修改" : ""}`;
       reason.textContent = post.reason || "";
 
       head.appendChild(type);
@@ -420,6 +477,25 @@
       card.appendChild(head);
       card.appendChild(meta);
       card.appendChild(reason);
+
+      if (isOwnPost(post)) {
+        const edit = document.createElement("button");
+        const remove = document.createElement("button");
+        actions.className = "discussion-card-actions";
+        edit.type = "button";
+        edit.textContent = "修改";
+        edit.setAttribute("data-edit-post", "");
+        edit.addEventListener("click", () => startEditPost(post));
+        remove.type = "button";
+        remove.textContent = "删除";
+        remove.className = "danger-link";
+        remove.setAttribute("data-delete-post", "");
+        remove.addEventListener("click", () => deletePost(post));
+        actions.appendChild(edit);
+        actions.appendChild(remove);
+        card.appendChild(actions);
+      }
+
       elements.discussionList.appendChild(card);
     });
   }
@@ -427,7 +503,7 @@
   async function loadDiscussionPosts() {
     try {
       discussionStatus("正在加载校园分享...", "");
-      const response = await fetch(discussionEndpoint("?select=id,school_name,shop_name,post_type,reason,created_at&order=created_at.desc&limit=50"), {
+      const response = await fetch(discussionEndpoint("?select=id,school_name,shop_name,post_type,reason,created_at,updated_at&order=created_at.desc&limit=50"), {
         headers: discussionHeaders()
       });
 
@@ -449,11 +525,17 @@
       school_name: clampText(elements.discussionSchool.value, 40),
       shop_name: clampText(elements.discussionShop.value, 60),
       post_type: elements.discussionType.value === "avoid" ? "avoid" : "recommend",
-      reason: clampText(elements.discussionReason.value, 240)
+      reason: clampText(elements.discussionReason.value, 240),
+      owner_token: state.ownerToken
     };
 
     if (payload.school_name.length < 2 || !payload.shop_name || payload.reason.length < 5) {
       discussionStatus("请填写学校、店家和至少 5 个字的理由。", "warn");
+      return;
+    }
+
+    if (state.editingPostId) {
+      updatePost(state.editingPostId, payload);
       return;
     }
 
@@ -473,12 +555,106 @@
       }
 
       const rows = await response.json();
+      (Array.isArray(rows) ? rows : []).forEach((row) => rememberOwnedPost(row.id));
       state.discussionPosts = (Array.isArray(rows) ? rows : []).concat(state.discussionPosts).slice(0, 50);
       elements.discussionForm.reset();
       elements.discussionType.value = payload.post_type;
       discussionStatus("已匿名发布，感谢分享。", "success");
     } catch (error) {
       discussionStatus("发布失败，请检查网络或 Supabase 权限。", "warn");
+    }
+
+    state.discussionSubmitting = false;
+    renderDiscussion();
+  }
+
+  function startEditPost(post) {
+    if (!canEditPost(post)) {
+      discussionStatus("修改后需等待 10 秒才能再次修改。", "warn");
+      return;
+    }
+
+    state.editingPostId = post.id;
+    elements.discussionSchool.value = post.school_name || "";
+    elements.discussionShop.value = post.shop_name || "";
+    elements.discussionType.value = post.post_type === "avoid" ? "avoid" : "recommend";
+    elements.discussionReason.value = post.reason || "";
+    elements.discussionSubmit.textContent = "保存修改";
+    discussionStatus("正在修改自己的匿名分享。", "");
+  }
+
+  function resetDiscussionForm(type) {
+    state.editingPostId = "";
+    elements.discussionForm.reset();
+    elements.discussionType.value = type || "recommend";
+    elements.discussionSubmit.textContent = "匿名发布";
+  }
+
+  async function updatePost(id, payload) {
+    state.discussionSubmitting = true;
+    renderDiscussion();
+    discussionStatus("正在保存修改...", "");
+
+    try {
+      const response = await fetch(discussionEndpoint(`?id=eq.${encodeURIComponent(id)}`), {
+        method: "PATCH",
+        headers: discussionHeaders({ Prefer: "return=representation" }),
+        body: JSON.stringify(Object.assign({}, payload, {
+          updated_at: new Date().toISOString()
+        }))
+      });
+
+      if (!response.ok) {
+        throw new Error("update failed");
+      }
+
+      const rows = await response.json();
+      const updated = Array.isArray(rows) ? rows[0] : null;
+      if (updated) {
+        state.discussionPosts = state.discussionPosts.map((post) => post.id === id ? updated : post);
+        rememberOwnedPost(updated.id);
+      }
+      state.editCooldowns[id] = Date.now() + 10000;
+      saveEditCooldowns();
+      resetDiscussionForm(payload.post_type);
+      discussionStatus("已保存修改，10 秒后才能再次修改。", "success");
+    } catch (error) {
+      discussionStatus("修改失败，请稍后再试。", "warn");
+    }
+
+    state.discussionSubmitting = false;
+    renderDiscussion();
+  }
+
+  async function deletePost(post) {
+    if (!confirm("确定删除这条匿名分享吗？")) {
+      return;
+    }
+
+    state.discussionSubmitting = true;
+    renderDiscussion();
+    discussionStatus("正在删除...", "");
+
+    try {
+      const response = await fetch(discussionEndpoint(`?id=eq.${encodeURIComponent(post.id)}`), {
+        method: "DELETE",
+        headers: discussionHeaders()
+      });
+
+      if (!response.ok) {
+        throw new Error("delete failed");
+      }
+
+      state.discussionPosts = state.discussionPosts.filter((entry) => entry.id !== post.id);
+      forgetOwnedPost(post.id);
+      delete state.editCooldowns[post.id];
+      saveEditCooldowns();
+      if (state.editingPostId === post.id) {
+        resetDiscussionForm();
+      }
+      discussionStatus("已删除自己的匿名分享。", "success");
+    } catch (error) {
+      discussionStatus("删除失败，请稍后再试。", "warn");
     }
 
     state.discussionSubmitting = false;

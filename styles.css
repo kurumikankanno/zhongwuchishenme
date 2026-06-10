@@ -545,6 +545,29 @@ textarea:focus {
   overflow-wrap: anywhere;
 }
 
+.discussion-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+}
+
+.discussion-card-actions button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 11px;
+  color: var(--ink);
+  background: #fff;
+  font-weight: 800;
+}
+
+.discussion-card-actions .danger-link {
+  color: var(--red-dark);
+  border-color: rgba(169, 52, 42, 0.24);
+  background: rgba(221, 75, 57, 0.08);
+}
+
 .discussion-type {
   flex: 0 0 auto;
   min-width: 44px;
