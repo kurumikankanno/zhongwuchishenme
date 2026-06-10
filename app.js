@@ -70,13 +70,18 @@
     penalty: loadObject(STORAGE.penalty),
     rotation: 0,
     spinning: false,
+    lastWinner: "",
     items: []
   };
 
   const elements = {
     canvas: document.querySelector("[data-wheel]"),
     spin: document.querySelector("[data-spin]"),
+    resultCard: document.querySelector("[data-result-card]"),
     result: document.querySelector("[data-result]"),
+    resultQuestion: document.querySelector("[data-result-question]"),
+    dislikeResult: document.querySelector("[data-dislike-result]"),
+    keepResult: document.querySelector("[data-keep-result]"),
     count: document.querySelector("[data-count]"),
     customCount: document.querySelector("[data-custom-count]"),
     dislikedCount: document.querySelector("[data-disliked-count]"),
@@ -255,20 +260,36 @@
     ctx.lineWidth = 5;
     ctx.strokeStyle = "#1f252d";
     ctx.stroke();
-    ctx.fillStyle = "#1f252d";
-    ctx.font = "800 18px Microsoft YaHei, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.shadowColor = "transparent";
-    ctx.fillText("午餐", 0, -8);
-    ctx.font = "12px Microsoft YaHei, sans-serif";
-    ctx.fillText("转盘", 0, 16);
+    if (!state.spinning) {
+      ctx.fillStyle = "#1f252d";
+      ctx.font = "800 18px Microsoft YaHei, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowColor = "transparent";
+      ctx.fillText("午餐", 0, -8);
+      ctx.font = "12px Microsoft YaHei, sans-serif";
+      ctx.fillText("转盘", 0, 16);
+    }
     ctx.restore();
   }
 
   function status(message, tone) {
     elements.status.textContent = message;
     elements.status.dataset.tone = tone || "";
+  }
+
+  function hideResultQuestion() {
+    elements.resultQuestion.hidden = true;
+  }
+
+  function showResultQuestion() {
+    elements.resultQuestion.hidden = !state.lastWinner;
+  }
+
+  function pulseResultCard() {
+    elements.resultCard.classList.remove("is-bouncing");
+    void elements.resultCard.offsetWidth;
+    elements.resultCard.classList.add("is-bouncing");
   }
 
   function renderChips() {
@@ -341,7 +362,9 @@
     }
 
     state.spinning = true;
+    state.lastWinner = "";
     elements.result.textContent = "转动中...";
+    hideResultQuestion();
     status("正在决定今天的午餐。", "");
     render();
 
@@ -369,10 +392,13 @@
       const winner = state.items[targetIndex];
       reducePenalty();
       state.penalty[winner] = PENALTY_ROUNDS;
+      state.lastWinner = winner;
       elements.result.textContent = winner;
       status(`今天吃：${winner}。它会在后 ${PENALTY_ROUNDS} 次抽取中降低概率。`, "success");
       state.spinning = false;
       render();
+      showResultQuestion();
+      pulseResultCard();
     }
 
     requestAnimationFrame(frame);
@@ -412,6 +438,29 @@
 
   elements.spin.addEventListener("click", spin);
 
+  elements.dislikeResult.addEventListener("click", () => {
+    if (!state.lastWinner) {
+      return;
+    }
+
+    const item = state.lastWinner;
+    if (addDisliked(item)) {
+      state.lastWinner = "";
+      hideResultQuestion();
+      render();
+    }
+  });
+
+  elements.keepResult.addEventListener("click", () => {
+    if (!state.lastWinner) {
+      return;
+    }
+
+    status(`已保留：${state.lastWinner}`, "success");
+    state.lastWinner = "";
+    hideResultQuestion();
+  });
+
   elements.addForm.addEventListener("submit", (event) => {
     event.preventDefault();
     if (addCustom(elements.itemInput.value)) {
@@ -449,7 +498,9 @@
     state.dislikedItems = [];
     state.penalty = {};
     state.rotation = 0;
+    state.lastWinner = "";
     elements.result.textContent = "等转盘决定";
+    hideResultQuestion();
     status("已恢复默认设置。", "success");
     render();
   });

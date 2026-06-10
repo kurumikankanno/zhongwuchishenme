@@ -38,9 +38,16 @@
           <canvas class="wheel" data-wheel width="640" height="640" aria-label="午餐随机转盘"></canvas>
           <button class="spin-button" type="button" data-spin>开始</button>
         </div>
-        <div class="result-strip" aria-live="polite">
-          <span>今天可以吃</span>
+        <div class="result-card" data-result-card aria-live="polite">
+          <span class="result-label">今天可以吃</span>
           <strong data-result>等转盘决定</strong>
+          <div class="result-question" data-result-question hidden>
+            <span>讨厌这个菜品吗？</span>
+            <div class="result-actions">
+              <button class="danger-action" type="button" data-dislike-result>加入厌恶菜单</button>
+              <button class="quiet-action" type="button" data-keep-result>保留</button>
+            </div>
+          </div>
         </div>
       </section>
 
