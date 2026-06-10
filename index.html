@@ -83,6 +83,36 @@
         </section>
       </aside>
     </section>
+
+    <section class="discussion-panel" aria-label="校园外卖讨论区">
+      <div class="discussion-heading">
+        <div>
+          <p class="eyebrow">Campus takeout board</p>
+          <h2>校园外卖讨论区</h2>
+          <p class="discussion-intro">匿名分享推荐店家和需要避雷的店家。发布时需要填写学校名称，方便同校同学参考。</p>
+        </div>
+        <select data-discussion-filter aria-label="筛选讨论区内容">
+          <option value="all">全部</option>
+          <option value="recommend">只看推荐</option>
+          <option value="avoid">只看避雷</option>
+        </select>
+      </div>
+
+      <form class="discussion-form" data-discussion-form>
+        <input data-discussion-school type="text" maxlength="40" autocomplete="off" placeholder="学校名称" required>
+        <input data-discussion-shop type="text" maxlength="60" autocomplete="off" placeholder="外卖店家" required>
+        <select data-discussion-type aria-label="分享类型">
+          <option value="recommend">推荐</option>
+          <option value="avoid">避雷</option>
+        </select>
+        <textarea data-discussion-reason maxlength="240" placeholder="说说理由，至少 5 个字" required></textarea>
+        <button class="discussion-submit" type="submit" data-discussion-submit>匿名发布</button>
+      </form>
+
+      <p class="discussion-status" data-discussion-status>讨论区内容会跨用户共享。</p>
+      <div class="discussion-list" data-discussion-list></div>
+      <p class="discussion-empty" data-discussion-empty hidden>暂时还没有分享，来发布第一条吧。</p>
+    </section>
   </main>
 
   <script src="app.js"></script>

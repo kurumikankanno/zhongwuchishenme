@@ -29,7 +29,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -108,10 +110,12 @@ h1 {
   grid-template-columns: minmax(360px, 1.08fr) minmax(340px, 0.92fr);
   gap: 22px;
   align-items: start;
+  margin-bottom: 24px;
 }
 
 .wheel-panel,
-.control-panel {
+.control-panel,
+.discussion-panel {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
@@ -290,19 +294,33 @@ h2 {
   gap: 10px;
 }
 
-input {
+input,
+select,
+textarea {
   min-width: 0;
-  height: 44px;
   border: 1px solid #c8ced8;
   border-radius: 8px;
-  padding: 0 12px;
   color: var(--ink);
   background: #fff;
   outline: none;
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
-input:focus {
+input,
+select {
+  height: 44px;
+  padding: 0 12px;
+}
+
+textarea {
+  min-height: 92px;
+  padding: 11px 12px;
+  resize: vertical;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(47, 104, 168, 0.18);
 }
@@ -406,6 +424,142 @@ input:focus {
   flex-wrap: wrap;
 }
 
+.discussion-panel {
+  padding: 22px;
+}
+
+.discussion-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+
+.discussion-heading h2 {
+  margin-bottom: 8px;
+  font-size: 24px;
+}
+
+.discussion-intro {
+  max-width: 680px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.discussion-heading select {
+  min-width: 136px;
+}
+
+.discussion-form {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.9fr) minmax(160px, 1fr) 120px;
+  gap: 10px;
+  align-items: start;
+}
+
+.discussion-form textarea {
+  grid-column: 1 / 3;
+}
+
+.discussion-submit {
+  min-height: 92px;
+  border: 1px solid var(--blue);
+  border-radius: 8px;
+  color: #fff;
+  background: var(--blue);
+  font-weight: 850;
+  transition: transform 150ms ease, background 150ms ease;
+}
+
+.discussion-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #1e4f86;
+}
+
+.discussion-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.discussion-status,
+.discussion-empty {
+  margin: 12px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: 14px;
+}
+
+.discussion-status[data-tone="success"] {
+  color: var(--green);
+  font-weight: 800;
+}
+
+.discussion-status[data-tone="warn"] {
+  color: var(--red-dark);
+  font-weight: 800;
+}
+
+.discussion-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.discussion-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgba(24, 32, 42, 0.1);
+  border-left: 6px solid var(--green);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 10px 26px rgba(24, 32, 42, 0.06);
+}
+
+.discussion-card.is-avoid {
+  border-left-color: var(--red-dark);
+}
+
+.discussion-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.discussion-card strong {
+  overflow-wrap: anywhere;
+}
+
+.discussion-card span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.discussion-card p {
+  margin: 0;
+  line-height: 1.62;
+  overflow-wrap: anywhere;
+}
+
+.discussion-type {
+  flex: 0 0 auto;
+  min-width: 44px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #fff !important;
+  background: var(--green);
+  text-align: center;
+  font-weight: 850;
+}
+
+.discussion-card.is-avoid .discussion-type {
+  background: var(--red-dark);
+}
+
 @media (max-width: 900px) {
   .app-header {
     display: block;
@@ -419,6 +573,23 @@ input:focus {
 
   .workspace {
     grid-template-columns: 1fr;
+  }
+
+  .discussion-heading {
+    display: grid;
+  }
+
+  .discussion-form,
+  .discussion-list {
+    grid-template-columns: 1fr;
+  }
+
+  .discussion-form textarea {
+    grid-column: auto;
+  }
+
+  .discussion-submit {
+    min-height: 46px;
   }
 }
 

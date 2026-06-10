@@ -9,6 +9,11 @@
 
   const PENALTY_ROUNDS = 8;
   const PENALTY_WEIGHT = 0.45;
+  const DISCUSSION_CONFIG = {
+    url: "https://psnfspriisabtbrjzfia.supabase.co",
+    key: "sb_publishable_S0ol3rfghyJXjnP_4co5lg_Jbvx30qp",
+    table: "takeout_posts"
+  };
 
   const DEFAULT_ITEMS = [
     "黄焖鸡米饭",
@@ -71,6 +76,9 @@
     rotation: 0,
     spinning: false,
     lastWinner: "",
+    discussionPosts: [],
+    discussionFilter: "all",
+    discussionSubmitting: false,
     items: []
   };
 
@@ -95,7 +103,17 @@
     dislikeInput: document.querySelector("[data-dislike-input]"),
     clearCustom: document.querySelector("[data-clear-custom]"),
     clearDisliked: document.querySelector("[data-clear-disliked]"),
-    reset: document.querySelector("[data-reset]")
+    reset: document.querySelector("[data-reset]"),
+    discussionForm: document.querySelector("[data-discussion-form]"),
+    discussionSchool: document.querySelector("[data-discussion-school]"),
+    discussionShop: document.querySelector("[data-discussion-shop]"),
+    discussionType: document.querySelector("[data-discussion-type]"),
+    discussionReason: document.querySelector("[data-discussion-reason]"),
+    discussionSubmit: document.querySelector("[data-discussion-submit]"),
+    discussionStatus: document.querySelector("[data-discussion-status]"),
+    discussionList: document.querySelector("[data-discussion-list]"),
+    discussionFilter: document.querySelector("[data-discussion-filter]"),
+    discussionEmpty: document.querySelector("[data-discussion-empty]")
   };
 
   const ctx = elements.canvas.getContext("2d");
@@ -106,6 +124,10 @@
 
   function displayText(value) {
     return String(value || "").trim().replace(/\s+/g, " ");
+  }
+
+  function clampText(value, maxLength) {
+    return displayText(value).slice(0, maxLength);
   }
 
   function hasItem(items, value) {
@@ -146,6 +168,18 @@
     localStorage.setItem(STORAGE.custom, JSON.stringify(state.customItems));
     localStorage.setItem(STORAGE.disliked, JSON.stringify(state.dislikedItems));
     localStorage.setItem(STORAGE.penalty, JSON.stringify(state.penalty));
+  }
+
+  function discussionEndpoint(query) {
+    return `${DISCUSSION_CONFIG.url}/rest/v1/${DISCUSSION_CONFIG.table}${query || ""}`;
+  }
+
+  function discussionHeaders(extra) {
+    return Object.assign({
+      apikey: DISCUSSION_CONFIG.key,
+      Authorization: `Bearer ${DISCUSSION_CONFIG.key}`,
+      "Content-Type": "application/json"
+    }, extra || {});
   }
 
   function allItems() {
@@ -278,6 +312,11 @@
     elements.status.dataset.tone = tone || "";
   }
 
+  function discussionStatus(message, tone) {
+    elements.discussionStatus.textContent = message;
+    elements.discussionStatus.dataset.tone = tone || "";
+  }
+
   function hideResultQuestion() {
     elements.resultQuestion.hidden = true;
   }
@@ -334,6 +373,116 @@
     renderChips();
     save();
     drawWheel();
+  }
+
+  function formatTime(value) {
+    if (!value) {
+      return "";
+    }
+
+    try {
+      return new Intl.DateTimeFormat("zh-CN", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(new Date(value));
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function renderDiscussion() {
+    const filter = state.discussionFilter;
+    const posts = state.discussionPosts.filter((post) => filter === "all" || post.post_type === filter);
+    elements.discussionList.innerHTML = "";
+    elements.discussionEmpty.hidden = posts.length > 0;
+    elements.discussionSubmit.disabled = state.discussionSubmitting;
+
+    posts.forEach((post) => {
+      const card = document.createElement("article");
+      const head = document.createElement("div");
+      const type = document.createElement("span");
+      const title = document.createElement("strong");
+      const meta = document.createElement("span");
+      const reason = document.createElement("p");
+
+      card.className = `discussion-card ${post.post_type === "avoid" ? "is-avoid" : "is-recommend"}`;
+      head.className = "discussion-card-head";
+      type.className = "discussion-type";
+      type.textContent = post.post_type === "avoid" ? "避雷" : "推荐";
+      title.textContent = post.shop_name || "未命名店家";
+      meta.textContent = `${post.school_name || "未知学校"} · 匿名 · ${formatTime(post.created_at)}`;
+      reason.textContent = post.reason || "";
+
+      head.appendChild(type);
+      head.appendChild(title);
+      card.appendChild(head);
+      card.appendChild(meta);
+      card.appendChild(reason);
+      elements.discussionList.appendChild(card);
+    });
+  }
+
+  async function loadDiscussionPosts() {
+    try {
+      discussionStatus("正在加载校园分享...", "");
+      const response = await fetch(discussionEndpoint("?select=id,school_name,shop_name,post_type,reason,created_at&order=created_at.desc&limit=50"), {
+        headers: discussionHeaders()
+      });
+
+      if (!response.ok) {
+        throw new Error("load failed");
+      }
+
+      state.discussionPosts = await response.json();
+      discussionStatus("已加载最近的匿名分享。", "success");
+    } catch (error) {
+      discussionStatus("讨论区暂时无法加载，请稍后再试。", "warn");
+    }
+
+    renderDiscussion();
+  }
+
+  async function submitDiscussion() {
+    const payload = {
+      school_name: clampText(elements.discussionSchool.value, 40),
+      shop_name: clampText(elements.discussionShop.value, 60),
+      post_type: elements.discussionType.value === "avoid" ? "avoid" : "recommend",
+      reason: clampText(elements.discussionReason.value, 240)
+    };
+
+    if (payload.school_name.length < 2 || !payload.shop_name || payload.reason.length < 5) {
+      discussionStatus("请填写学校、店家和至少 5 个字的理由。", "warn");
+      return;
+    }
+
+    state.discussionSubmitting = true;
+    renderDiscussion();
+    discussionStatus("正在发布匿名分享...", "");
+
+    try {
+      const response = await fetch(discussionEndpoint(), {
+        method: "POST",
+        headers: discussionHeaders({ Prefer: "return=representation" }),
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error("submit failed");
+      }
+
+      const rows = await response.json();
+      state.discussionPosts = (Array.isArray(rows) ? rows : []).concat(state.discussionPosts).slice(0, 50);
+      elements.discussionForm.reset();
+      elements.discussionType.value = payload.post_type;
+      discussionStatus("已匿名发布，感谢分享。", "success");
+    } catch (error) {
+      discussionStatus("发布失败，请检查网络或 Supabase 权限。", "warn");
+    }
+
+    state.discussionSubmitting = false;
+    renderDiscussion();
   }
 
   function normalizeAngle(angle) {
@@ -481,6 +630,16 @@
     }
   });
 
+  elements.discussionForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitDiscussion();
+  });
+
+  elements.discussionFilter.addEventListener("change", () => {
+    state.discussionFilter = elements.discussionFilter.value || "all";
+    renderDiscussion();
+  });
+
   elements.clearCustom.addEventListener("click", () => {
     state.customItems = [];
     status("已清空自定义选项。", "success");
@@ -507,4 +666,6 @@
 
   window.addEventListener("resize", drawWheel);
   render();
+  renderDiscussion();
+  loadDiscussionPosts();
 })();
